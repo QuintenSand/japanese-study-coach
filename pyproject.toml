@@ -3,7 +3,12 @@ name = "japanese-study-coach"
 version = "0.1.0"
 description = "A Claude-powered Japanese study coach with dictionary lookup and spaced-repetition flashcards"
 requires-python = ">=3.11"
-dependencies = ["anthropic>=1.0"]
+dependencies = [
+    "altair>=6.2.2",
+    "anthropic>=1.0",
+    "pandas>=3.0.5",
+    "streamlit>=1.63.0",
+]
 
 [project.scripts]
 coach = "coach.cli:main"

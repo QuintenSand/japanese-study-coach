@@ -5,6 +5,7 @@
     coach --image shot.png     explain a screenshot (optional prompt after it)
     coach quiz                 review due flashcards
     coach stats                deck summary, no API call
+    coach ui                   open the Streamlit app
 """
 
 from __future__ import annotations
@@ -28,11 +29,20 @@ def _require_credentials() -> anthropic.Anthropic:
 
 
 def _print_stats() -> None:
-    from .tools import get_deck
+    from .tools import get_store
 
-    stats = get_deck().stats()
-    for k, v in stats.items():
+    store = get_store()
+    print(f"backend: {store.name}")
+    for k, v in store.stats().items():
         print(f"{k:>10}: {v}")
+
+
+def _run_ui() -> None:
+    import subprocess
+    from pathlib import Path
+
+    app = Path(__file__).parent / "ui" / "app.py"
+    raise SystemExit(subprocess.call([sys.executable, "-m", "streamlit", "run", str(app)]))
 
 
 def _chat(coach, first_message: str | None = None, image: str | None = None) -> None:
@@ -64,10 +74,10 @@ def _chat(coach, first_message: str | None = None, image: str | None = None) -> 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="coach", description="Claude-powered Japanese study coach")
-    parser.add_argument("text", nargs="*", help="text to explain, or 'quiz' / 'stats'")
+    parser.add_argument("text", nargs="*", help="text to explain, or 'quiz' / 'stats' / 'ui'")
     parser.add_argument("--image", "-i", help="path to a screenshot to explain")
     parser.add_argument("--once", action="store_true", help="answer once and exit instead of staying in chat")
-    parser.add_argument("--effort", default="medium", choices=["low", "medium", "high", "xhigh", "max"])
+    parser.add_argument("--effort", default=None, choices=["low", "medium", "high", "xhigh", "max"])
     args = parser.parse_args(argv)
 
     text = " ".join(args.text).strip()
@@ -75,11 +85,16 @@ def main(argv: list[str] | None = None) -> None:
     if text == "stats":
         _print_stats()
         return
+    if text == "ui":
+        _run_ui()
 
     client = _require_credentials()
     from .agent import Coach
 
-    coach = Coach(client=client, effort=args.effort)
+    from .config import Settings
+
+    settings = Settings.load()
+    coach = Coach(client=client, model=settings.model, effort=args.effort or settings.effort)
 
     if text == "quiz":
         text = "Quiz me on my due flashcards, one at a time."

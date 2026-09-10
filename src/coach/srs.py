@@ -63,6 +63,7 @@ class Deck:
     def __init__(self, path: Path):
         self.path = Path(path)
         self.cards: dict[str, Card] = {}
+        self.reviews: list[dict] = []
         self._load()
 
     # -- persistence -------------------------------------------------------
@@ -72,12 +73,14 @@ class Deck:
             return
         raw = json.loads(self.path.read_text(encoding="utf-8"))
         self.cards = {c["id"]: Card(**c) for c in raw.get("cards", [])}
+        self.reviews = list(raw.get("reviews", []))
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "updated": datetime.now().isoformat(timespec="seconds"),
             "cards": [asdict(c) for c in self.cards.values()],
+            "reviews": self.reviews,
         }
         self.path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -104,6 +107,14 @@ class Deck:
         if card is None:
             raise KeyError(f"no card with id {card_id!r}")
         card.review(grade, on)
+        self.reviews.append(
+            {
+                "ts": datetime.combine(on or date.today(), datetime.now().time()).isoformat(timespec="seconds"),
+                "card_id": card.id,
+                "grade": grade,
+                "correct": grade >= 3,
+            }
+        )
         self.save()
         return card
 
